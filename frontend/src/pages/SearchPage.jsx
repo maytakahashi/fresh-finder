@@ -3,7 +3,7 @@ import StoreList from '../components/StoreList';
 import './SearchPage.css';
 
 const SearchPage = () => {
-    const [zipCode, setZipCode] = useState('');
+    const [zipCode, setZipCode] = useState('08854');
     const [stores, setStores] = useState([]);
 
     const handleSearch = () => {
@@ -22,7 +22,7 @@ const SearchPage = () => {
                 type="text"
                 placeholder="Enter Zip Code"
                 value={zipCode}
-                onChange={(e) => setZipCode(e.target.value)}
+                readOnly
             />
             <button onClick={handleSearch}>Search</button>
             <StoreList stores={stores} />
