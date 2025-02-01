@@ -3,9 +3,7 @@ import StoreList from '../components/StoreList';
 import './SearchPage.css';
 
 const SearchPage = () => {
-  // State to hold the user’s input for Zip Code
-  const [zipCode, setZipCode] = useState('');
-  // State to hold the user’s input for search radius (miles)
+  // State to hold the user’s input for search radius (in miles)
   const [searchRadius, setSearchRadius] = useState('');
   // State to store the fetched list of grocery stores
   const [stores, setStores] = useState([]);
@@ -17,69 +15,62 @@ const SearchPage = () => {
     return miles * 1609.34; // ~1609.34 meters in a mile
   };
 
-  const handleSearch = async () => {
-    try {
-      // Clear any previous stores
-      setStores([]);
-
-      // If no zip code or radius is entered, handle accordingly
-      if (!zipCode || !searchRadius) {
-        alert("Please enter both a Zip Code and a search radius (in miles).");
-        return;
-      }
-
-      // Update "searchedLocation" to whatever user typed
-      setSearchedLocation(`${zipCode} (within ${searchRadius} miles)`);
-
-      // 1. GEOCODE the Zip code to get lat/lng
-      const geocodeResponse = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-          zipCode
-        )}&key=YOUR_API_KEY`
-      );
-      const geocodeData = await geocodeResponse.json();
-
-      if (
-        !geocodeData.results ||
-        geocodeData.results.length === 0 ||
-        geocodeData.status !== 'OK'
-      ) {
-        alert('Could not find a location for the given Zip Code.');
-        return;
-      }
-
-      const { lat, lng } = geocodeData.results[0].geometry.location;
-
-      // 2. NEARBY SEARCH for grocery stores and farmers markets
-      //    "type=grocery_or_supermarket" covers grocery stores
-      //    "keyword=farmer's market" to help find farmers markets
-      //    You could also do separate requests, or do a textsearch approach.
-      const radiusInMeters = convertMilesToMeters(parseFloat(searchRadius));
-      const placesResponse = await fetch(
-        `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radiusInMeters}&type=grocery_or_supermarket&keyword=farmer%27s+market&key=KEY`
-      );
-      const placesData = await placesResponse.json();
-
-      // If the Places API call succeeds, parse out the relevant info:
-      if (placesData.status !== 'OK' && placesData.status !== 'ZERO_RESULTS') {
-        alert(
-          'Places API request failed. Please check your API key, billing, and Places API settings.'
-        );
-        return;
-      }
-
-      const fetchedStores = (placesData.results || []).map((place) => ({
-        id: place.place_id,
-        name: place.name,
-        address: place.vicinity,
-        rating: place.rating,
-        // You could add additional fields if needed (opening_hours, etc.)
-      }));
-
-      setStores(fetchedStores);
-    } catch (error) {
-      console.error('Error searching for stores:', error);
+  const handleSearch = () => {
+    // If no search radius is entered, handle accordingly
+    if (!searchRadius) {
+      alert("Please enter a search radius (in miles).");
+      return;
     }
+
+    // Use the HTML5 Geolocation API to get the user’s current location
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          // Clear any previous stores
+          setStores([]);
+
+          // Extract lat/lng from the geolocation result
+          const { latitude, longitude } = position.coords;
+
+          // Update the "searchedLocation" state
+          setSearchedLocation(`Your current location (within ${searchRadius} miles)`);
+
+          // Calculate the radius in meters for the Places API
+          const radiusInMeters = convertMilesToMeters(parseFloat(searchRadius));
+
+          // Perform NEARBY SEARCH for grocery stores and farmers markets
+          const placesResponse = await fetch(
+            `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radiusInMeters}&type=grocery_or_supermarket&keyword=farmer%27s+market&key=YOUR_GOOGLE_API_KEY`
+          );
+
+          const placesData = await placesResponse.json();
+
+          // If the Places API call succeeds, parse out relevant info:
+          if (placesData.status !== 'OK' && placesData.status !== 'ZERO_RESULTS') {
+            alert(
+              'Places API request failed. Please check your API key, billing, and Places API settings.'
+            );
+            return;
+          }
+
+          const fetchedStores = (placesData.results || []).map((place) => ({
+            id: place.place_id,
+            name: place.name,
+            address: place.vicinity,
+            rating: place.rating,
+            // You could add additional fields if needed (e.g. opening_hours).
+          }));
+
+          setStores(fetchedStores);
+        } catch (error) {
+          console.error('Error searching for stores:', error);
+        }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        alert('Unable to retrieve your location. Please allow location access.');
+      }
+    );
   };
 
   return (
@@ -88,14 +79,8 @@ const SearchPage = () => {
 
       <div className="search-inputs">
         <input
-          type="text"
-          placeholder="Enter Zip Code"
-          value={zipCode}
-          onChange={(e) => setZipCode(e.target.value)}
-        />
-        <input
           type="number"
-          placeholder="Miles (e.g. 25)"
+          placeholder="How many miles from you?"
           value={searchRadius}
           onChange={(e) => setSearchRadius(e.target.value)}
         />
