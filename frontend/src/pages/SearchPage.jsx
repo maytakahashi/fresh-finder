@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import StoreList from '../components/StoreList';
+import './SearchPage.css';
 
 const SearchPage = () => {
     const [zipCode, setZipCode] = useState('');
@@ -15,7 +16,7 @@ const SearchPage = () => {
     };
 
     return (
-        <div>
+        <div className="search-page">
             <h1>Find Grocery Stores</h1>
             <input
                 type="text"
